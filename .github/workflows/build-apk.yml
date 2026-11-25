@@ -1,0 +1,53 @@
+
+name: Build RELIEF Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+
+      - name: Extract Android project ZIP
+        run: |
+          mkdir -p extracted
+          unzip -q RELIEF-Android-1.0.1-audit-update.zip -d extracted
+
+      - name: Locate Android project
+        run: |
+          PROJECT_FILE=$(find extracted -type f -name settings.gradle.kts -print -quit)
+          if [ -z "$PROJECT_FILE" ]; then
+            echo "Android Gradle settings file not found"
+            find extracted -maxdepth 4 -type f
+            exit 1
+          fi
+          echo "PROJECT_DIR=$(dirname "$PROJECT_FILE")" >> "$GITHUB_ENV"
+
+      - name: Build Debug APK
+        run: gradle -p "$PROJECT_DIR" assembleDebug
+
+      - name: Upload RELIEF APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: RELIEF-Android-APK
+          path: extracted/**/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          
